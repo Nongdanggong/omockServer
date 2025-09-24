@@ -4,6 +4,7 @@ import com.omockServer.omockServer.OmockServerApplication.Companion.sessionMap
 import com.omockServer.omockServer.converter.dto.packet.s2c.S2CPacketType
 import com.omockServer.omockServer.converter.dto.packet.s2c.S2CPayload
 import com.omockServer.omockServer.converter.dto.packet.s2c.Serializer
+import java.net.SocketException
 
 class PacketSender {
     val serializer: Serializer = Serializer()
@@ -22,14 +23,21 @@ class PacketSender {
         packetType: S2CPacketType,
         data: S2CPayload? = null,
     ) {
-        val outputStream = targetSession.socket.getOutputStream()
-        val packet =
-            makePacket(
-                packetType = packetType,
-                data = data,
-            )
-        outputStream.write(packet)
-        println("[PacketSender - UNICAST] Session ${targetSession.id} 에게 ${packetType.name} 패킷 전송 완료")
+        try {
+            if (targetSession.socket.isConnected) {
+                val outputStream = targetSession.socket.getOutputStream()
+                val packet =
+                    makePacket(
+                        packetType = packetType,
+                        data = data,
+                    )
+                outputStream.write(packet)
+                outputStream.flush()
+                println("[PacketSender - UNICAST] Session ID ${targetSession.id} 에게 ${packetType.name} 패킷 전송 완료, 크기: ${packet.size}")
+            }
+        } catch (e: SocketException) {
+            println("${targetSession.id} ${e.message}")
+        }
     }
 
     fun multicast(
@@ -44,10 +52,16 @@ class PacketSender {
             )
 
         for (session in targetSessionList) {
-            val outputStream = session.socket.getOutputStream()
-            outputStream.write(packet)
-
-            println("[PacketSender - MULTICAST] Session ${session.id} 에게 ${packetType.name} 패킷 전송 완료")
+            try {
+                if (session.socket.isConnected) {
+                    val outputStream = session.socket.getOutputStream()
+                    outputStream.write(packet)
+                    outputStream.flush()
+                    println("[PacketSender - MULTICAST] Session ID ${session.id} 에게 ${packetType.name} 패킷 전송 완료, 크기: ${packet.size}")
+                }
+            } catch (e: SocketException) {
+                println("${session.id} ${e.message}")
+            }
         }
     }
 
@@ -63,10 +77,16 @@ class PacketSender {
             )
 
         for (session in sessionMap.values) {
-            val outputStream = session.socket.getOutputStream()
-            outputStream.write(packet)
-
-            println("[PacketSender - BROADCAST] Session ${session.id} 에게 ${packetType.name} 패킷 전송 완료")
+            try {
+                if (session.socket.isConnected) {
+                    val outputStream = session.socket.getOutputStream()
+                    outputStream.write(packet)
+                    outputStream.flush()
+                    println("[PacketSender - BROADCAST] Session ID ${session.id} 에게 ${packetType.name} 패킷 전송 완료, 크기: ${packet.size}")
+                }
+            } catch (e: Exception) {
+                println("${session.id} ${e.message}")
+            }
         }
     }
 }
