@@ -1,6 +1,7 @@
 package com.omockServer.omockServer
 
 import MainDispatcher
+import com.omockServer.omockServer.converter.dto.packet.c2s.DeSerializer
 import com.omockServer.omockServer.converter.dto.packet.s2c.Me
 import com.omockServer.omockServer.converter.dto.packet.s2c.S2CPacketType
 import com.omockServer.omockServer.converter.dto.packet.s2c.Serializer
@@ -31,6 +32,7 @@ class OmockServerApplication {
 }
 
 val serializer = Serializer()
+val deserializer = DeSerializer()
 
 class ServerThread(
     val socketId: Int,
@@ -58,22 +60,25 @@ class ServerThread(
             try {
                 val readSize = inputStream.read(buffer)
 
-                println("패킷 받음, 크기: $readSize")
+                println("[IOThread] Session ID ${socketId}에게 패킷 받음, 크기: $readSize")
 
                 if (readSize == -1) {
                     // readSize == -1 일 때
-                    println("\n[알림] ${socketId}번째 소켓이 정상적으로 연결을 종료했습니다.")
+                    println("\n[IOThread] Session ID ${socketId}가 정상적으로 연결을 종료했습니다.")
                     client.close()
                     break
                 }
 
-                val clientRequest =
-                    ClientRequest(
-                        session = session,
-                        buffer = buffer.copyOf(readSize),
-                    )
+                val frameList: List<ByteArray> = deserializer.getFrameList(buffer.copyOf(readSize))
 
-                OmockServerApplication.receiveQueue.put(clientRequest)
+                for (frame in frameList) {
+                    val clientRequest =
+                        ClientRequest(
+                            session = session,
+                            buffer = frame,
+                        )
+                    OmockServerApplication.receiveQueue.put(clientRequest)
+                }
             } catch (e: Exception) {
                 println("\n[알림] ${socketId}번째 소켓의 연결이 비정상적으로 끊겼습니다.")
                 client.close()
@@ -87,7 +92,9 @@ class ServerThread(
 
 fun main(args: Array<String>) {
 // 	runApplication<OmockServerApplication>(*args)
-    val serverSocket: ServerSocket = ServerSocket(8000)
+    val serverSocket = ServerSocket(8000)
+
+//    serverSocket// TCP no-delay
 
     var clientId = 0
 
@@ -99,6 +106,8 @@ fun main(args: Array<String>) {
         val client: Socket = serverSocket.accept()
         clientId += 1
         println("[알림] $clientId 번째 소켓이 연결되었습니다!")
+
+        client.tcpNoDelay = true
 
         OmockServerApplication.sessionMap[clientId] = ClientSession(clientId, client)
         OmockServerApplication.userMap[clientId] = User(userId = clientId)

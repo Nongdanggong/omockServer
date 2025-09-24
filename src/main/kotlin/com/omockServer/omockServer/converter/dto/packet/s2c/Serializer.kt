@@ -20,7 +20,7 @@ class Serializer {
     ): ByteArray {
         val byteList = mutableListOf<Byte>()
 
-        byteList.addAll(intToByteArray(byteArray.size + 8).toList())
+        byteList.addAll(intToByteArray(byteArray.size + 4).toList())
         byteList.addAll(intToByteArray(packetType.value).toList())
         byteList.addAll(byteArray.toList())
 
