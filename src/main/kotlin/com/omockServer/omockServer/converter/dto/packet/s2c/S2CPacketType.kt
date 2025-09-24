@@ -29,6 +29,8 @@ enum class S2CPacketType(
     ROOM_EXIT_OK(value = 104),
 
     ENTER_LOBBY_OK(value = 106),
+
+    CONNECTION_CLOSED_OK(value = 107),
     ;
 
     companion object {

@@ -254,7 +254,29 @@ class MainDispatcher : Thread() {
                     )
                 }
 
-                else -> {}
+                    C2SPacketType.CLOSE_CONNECTION -> {
+                        // 봇에선 close connection 시에 무조건 로비에 있기 때문에 로비만 제거하면 되지만
+                        // 게임 방에 있다면 나감 처리
+                        // 게임 중이라면 .. 상대방 승리 처리 + 게임 삭제 하는 등등 로직 필요
+                        // 연결 종료 로직을 따로 빼서 처리하고 연결이 강제로 끊겼을 때도 돌려야 할듯
+                        lobbyManager.exit(user = userMap[sessionId]!!)
+
+                        packetSender.unicast(
+                            targetSession = clientRequest.session,
+                            packetType = S2CPacketType.CONNECTION_CLOSED_OK,
+                        )
+
+                        sessionMap.remove(sessionId)
+                        userMap.remove(sessionId)
+                    }
+
+                    else -> {}
+                }
+            } catch (e: Exception) {
+                println(
+                    "MainDispatcher Exception 발생. sessionId: $sessionId, packetType: ${c2sPacket.packetType}, error: $e, errorMessage: ${e.message}",
+                )
+                throw (e)
             }
         }
     }

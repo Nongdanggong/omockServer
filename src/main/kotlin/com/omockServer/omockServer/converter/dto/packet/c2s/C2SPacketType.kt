@@ -12,6 +12,8 @@ enum class C2SPacketType(
     PLACE_ON_STONE(value = 5), // 돌을 놓음
 
     ENTER_LOBBY(value = 6),
+
+    CLOSE_CONNECTION(value = 7),
     ;
 
     companion object {
