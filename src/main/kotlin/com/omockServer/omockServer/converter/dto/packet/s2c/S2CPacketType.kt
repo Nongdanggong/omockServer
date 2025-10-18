@@ -31,6 +31,11 @@ enum class S2CPacketType(
     ENTER_LOBBY_OK(value = 106),
 
     CONNECTION_CLOSED_OK(value = 107),
+
+    // ERROR Packet
+    ERROR_ROOM_IS_FULL(value = 9000),
+    ERROR_ROOM_NOT_EXIST(value = 9001),
+
     ;
 
     companion object {

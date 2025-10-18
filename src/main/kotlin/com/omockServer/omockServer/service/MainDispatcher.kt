@@ -18,6 +18,7 @@ import com.omockServer.omockServer.converter.dto.packet.s2c.gameroom.ModifyNumbe
 import com.omockServer.omockServer.service.ClientRequest
 import com.omockServer.omockServer.service.PacketSender
 import com.omockServer.omockServer.service.game.GameManager
+import com.omockServer.omockServer.service.gameRoom.GameRoom
 import com.omockServer.omockServer.service.gameRoom.GameRoomManager
 import com.omockServer.omockServer.service.lobby.LobbyManager
 import kotlin.collections.set
@@ -102,29 +103,47 @@ class MainDispatcher : Thread() {
 
                         lobbyManager.exit(user = userMap[sessionId]!!)
 
-                        val targetRoom = gameRoomManager.enterRoom(payload.roomId, userMap[sessionId]!!)
+                        val targetRoom: GameRoom?
 
-                        val gameRoomInformation =
-                            GameRoomInformation(
-                                gameRoom = targetRoom,
+                        // error check
+                        if (!gameRoomManager.isExistRoom(payload.roomId)) {
+                            packetSender.unicast(
+                                targetSession = clientRequest.session,
+                                packetType = S2CPacketType.ERROR_ROOM_NOT_EXIST,
                             )
+                        } else {
+                            val targetRoom = gameRoomManager.roomMap[payload.roomId]!!
+                            if (!targetRoom.isPassibleToEnter()) {
+                                packetSender.unicast(
+                                    targetSession = clientRequest.session,
+                                    packetType = S2CPacketType.ERROR_ROOM_IS_FULL,
+                                )
+                            } else {
+                                gameRoomManager.enterRoom(payload.roomId, userMap[sessionId]!!)
 
-                        packetSender.multicast(
-                            targetSessionList = targetRoom.userList.map { it -> sessionMap[it.userId]!! },
-                            packetType = S2CPacketType.GAME_ROOM_INFORMATION,
-                            data = gameRoomInformation,
-                        )
+                                val gameRoomInformation =
+                                    GameRoomInformation(
+                                        gameRoom = targetRoom,
+                                    )
 
-                        val sessionListInLobby =
-                            lobbyManager.lobbyMap[defaultLobbyId]!!.userList.map {
-                                sessionMap[it.userId]!!
+                                packetSender.multicast(
+                                    targetSessionList = targetRoom.userList.map { it -> sessionMap[it.userId]!! },
+                                    packetType = S2CPacketType.GAME_ROOM_INFORMATION,
+                                    data = gameRoomInformation,
+                                )
+
+                                val sessionListInLobby =
+                                    lobbyManager.lobbyMap[defaultLobbyId]!!.userList.map {
+                                        sessionMap[it.userId]!!
+                                    }
+
+                                packetSender.multicast(
+                                    targetSessionList = sessionListInLobby,
+                                    packetType = S2CPacketType.ROOM_NUMBER_OF_USER_MODIFIED,
+                                    data = ModifyNumberOfUser(gameRoom = targetRoom),
+                                )
                             }
-
-                        packetSender.multicast(
-                            targetSessionList = sessionListInLobby,
-                            packetType = S2CPacketType.ROOM_NUMBER_OF_USER_MODIFIED,
-                            data = ModifyNumberOfUser(gameRoom = targetRoom),
-                        )
+                        }
                     }
 
                     C2SPacketType.ROOM_EXIT -> {
